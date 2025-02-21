@@ -27,11 +27,12 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
 )
+
 # Ensure log file exists
 if not os.path.exists(LOG_FILE):
     with open(LOG_FILE, "w") as f:
         f.write("GMass Webhook Log Started\n")
-        
+
 # Events to track
 events = ["Opens", "Clicks", "Replies", "Bounces", "Unsubscribes", "Sends", "Blocks"]
 
@@ -41,10 +42,12 @@ if not os.path.exists(CSV_FILE):
         writer = csv.writer(file)
         writer.writerow(["timestamp", "event", "campaign_id", "email", "extra_data"])
 
+
 @app.route("/health", methods=["GET"])
 def health_check():
     """Health check endpoint"""
     return jsonify({"status": "running", "message": "GMass Webhook API is live!"}), 200
+
 
 @app.route("/gmass-webhook", methods=["POST"])
 def receive_gmass_event():
@@ -76,6 +79,7 @@ def receive_gmass_event():
 
     return jsonify({"status": "success", "message": "Event received and stored"}), 200
 
+
 @app.route("/logs", methods=["GET"])
 def get_logs():
     """
@@ -87,6 +91,75 @@ def get_logs():
     except FileNotFoundError:
         return "Log file not found", 404
 
+
+def get_gmass_report(campaign_id, report_type):
+    """
+    Fetches GMass report for a given campaign ID and report type.
+    Available types: opens, clicks, unsubscribes, bounces, blocks, replies
+    """
+    api_key = api_keys[0]
+    url = f"https://api.gmass.co/api/reports/{campaign_id}/{report_type}"
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+
+    response = requests.get(url, headers=headers)
+    
+    if response.status_code == 200:
+        data = response.json()
+        logging.info(f"Successfully retrieved {report_type} report for campaign {campaign_id}")
+        return jsonify(data), 200
+    else:
+        logging.error(f"Failed to retrieve {report_type} report for campaign {campaign_id}: {response.text}")
+        return jsonify({"error": "Failed to retrieve report", "status_code": response.status_code}), response.status_code
+
+
+@app.route("/reports/<campaign_id>/opens", methods=["GET"])
+def get_opens_report(campaign_id):
+    """Fetches recipients who opened the email campaign."""
+    return get_gmass_report(campaign_id, "opens")
+
+
+@app.route("/reports/<campaign_id>/clicks", methods=["GET"])
+def get_clicks_report(campaign_id):
+    """Fetches recipients who clicked a URL in the email campaign."""
+    return get_gmass_report(campaign_id, "clicks")
+
+
+@app.route("/reports/<campaign_id>/unsubscribes", methods=["GET"])
+def get_unsubscribes_report(campaign_id):
+    """Fetches recipients who unsubscribed from the email campaign."""
+    return get_gmass_report(campaign_id, "unsubscribes")
+
+
+@app.route("/reports/<campaign_id>/bounces", methods=["GET"])
+def get_bounces_report(campaign_id):
+    """Fetches recipients whose email bounced."""
+    return get_gmass_report(campaign_id, "bounces")
+
+
+@app.route("/reports/<campaign_id>/blocks", methods=["GET"])
+def get_blocks_report(campaign_id):
+    """Fetches recipients who blocked the emails."""
+    return get_gmass_report(campaign_id, "blocks")
+
+
+@app.route("/reports/<campaign_id>/replies", methods=["GET"])
+def get_replies_report(campaign_id):
+    """Fetches recipients who replied to the email campaign."""
+    return get_gmass_report(campaign_id, "replies")
+
+@app.route("/csv", methods=["GET"])
+def get_csv():
+    """Serves the gmass_events.csv file content."""
+    try:
+        with open(CSV_FILE, "r") as f:
+            return f"<pre>{f.read()}</pre>", 200  # Display CSV content in a readable format
+    except FileNotFoundError:
+        return "CSV file not found", 404
+
 def create_webhooks():
     """
     Creates GMass webhooks for tracking events.
@@ -95,7 +168,7 @@ def create_webhooks():
     if not api_keys or not campaign_ids or not webhook_url:
         logging.error("Missing required environment variables. Check API_KEYS, CAMPAIGN_IDS, and WEBHOOK_URL.")
         return
-    
+
     # Use first API key
     api_key = api_keys[0]
 
@@ -135,6 +208,7 @@ def create_webhooks():
             except requests.exceptions.RequestException as e:
                 logging.error(f"⚠️ API request error '{event}' on '{campaign_id}': {e}")
                 print(f"⚠️ API request error '{event}' on '{campaign_id}'. Check logs for details.")
+
 
 if __name__ == "__main__":
     create_webhooks()
