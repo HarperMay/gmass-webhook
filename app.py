@@ -160,25 +160,23 @@ def get_csv():
     except FileNotFoundError:
         return "CSV file not found", 404
 
+
 def create_webhooks():
     """
-    Creates GMass webhooks for tracking events.
+    Creates GMass webhooks for tracking events using multiple API keys.
     """
-    # Ensure required environment variables are set
     if not api_keys or not campaign_ids or not webhook_url:
         logging.error("Missing required environment variables. Check API_KEYS, CAMPAIGN_IDS, and WEBHOOK_URL.")
         return
 
-    # Use first API key
-    api_key = api_keys[0]
-
     logging.info("Starting GMass Webhook Setup")
-    logging.info(f"Using API Key: {api_key[:5]}**** (hidden for security)")
     logging.info(f"Webhook URL: {webhook_url}")
     logging.info(f"Tracking events: {', '.join(events)}")
 
-    for campaign_id in campaign_ids:
-        logging.info(f"Processing campaign ID: {campaign_id}")
+    for index, campaign_id in enumerate(campaign_ids):
+        api_key = api_keys[index % len(api_keys)]  # Cycle through API keys
+
+        logging.info(f"Processing campaign ID: {campaign_id} using API Key: {api_key[:5]}****")
 
         for event in events:
             payload = {
@@ -208,6 +206,7 @@ def create_webhooks():
             except requests.exceptions.RequestException as e:
                 logging.error(f"⚠️ API request error '{event}' on '{campaign_id}': {e}")
                 print(f"⚠️ API request error '{event}' on '{campaign_id}'. Check logs for details.")
+
 
 
 if __name__ == "__main__":
