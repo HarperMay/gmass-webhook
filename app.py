@@ -1,8 +1,9 @@
 import os
+import csv
 import requests
 import logging
 from dotenv import load_dotenv
-from flask import Flask, jsonify
+from flask import Flask, request, jsonify
 
 # Load .env file (Only for local development)
 if os.getenv("KOYEB_ENV") is None:
@@ -11,10 +12,13 @@ if os.getenv("KOYEB_ENV") is None:
 # Retrieve environment variables
 api_keys = os.getenv("API_KEYS", "").split(",")  # Convert CSV string to list
 campaign_ids = os.getenv("CAMPAIGN_IDS", "").split(",")
-webhook_url = os.getenv("WEBHOOK_URL")
+webhook_url = os.getenv("WEBHOOK_URL", "").strip()
 
 # Flask app for Gunicorn
 app = Flask(__name__)
+
+# CSV File Path
+CSV_FILE = "gmass_events.csv"
 
 # Configure logging
 logging.basicConfig(
@@ -26,12 +30,51 @@ logging.basicConfig(
 # Events to track
 events = ["Opens", "Clicks", "Replies", "Bounces", "Unsubscribes", "Sends", "Blocks"]
 
+# Ensure CSV file exists
+if not os.path.exists(CSV_FILE):
+    with open(CSV_FILE, mode="w", newline="") as file:
+        writer = csv.writer(file)
+        writer.writerow(["timestamp", "event", "campaign_id", "email", "extra_data"])
+
 @app.route("/health", methods=["GET"])
 def health_check():
+    """Health check endpoint"""
     return jsonify({"status": "running", "message": "GMass Webhook API is live!"}), 200
 
+@app.route("/gmass-webhook", methods=["POST"])
+def receive_gmass_event():
+    """
+    Receives incoming GMass event data and saves it to CSV.
+    """
+    data = request.get_json()
+    logging.info(f"Received GMass webhook data: {data}")
+
+    # Extract relevant data
+    timestamp = data.get("TimeStamp", "N/A")
+    event = data.get("platformSource", "Unknown")
+    campaign_id = data.get("CampaignID", "N/A")
+    email = data.get("EmailAddress", "N/A")
+
+    # Store additional details in case of different event types
+    extra_data = ""
+    if "UserAgent" in data:
+        extra_data = data["UserAgent"]
+    elif "BounceMessage" in data:
+        extra_data = data["BounceMessage"]
+    elif "URL" in data:
+        extra_data = data["URL"]
+
+    # Save to CSV
+    with open(CSV_FILE, mode="a", newline="") as file:
+        writer = csv.writer(file)
+        writer.writerow([timestamp, event, campaign_id, email, extra_data])
+
+    return jsonify({"status": "success", "message": "Event received and stored"}), 200
+
 def create_webhooks():
-    """Creates GMass webhooks for tracking events."""
+    """
+    Creates GMass webhooks for tracking events.
+    """
     # Ensure required environment variables are set
     if not api_keys or not campaign_ids or not webhook_url:
         logging.error("Missing required environment variables. Check API_KEYS, CAMPAIGN_IDS, and WEBHOOK_URL.")
@@ -52,7 +95,7 @@ def create_webhooks():
             payload = {
                 "platformSource": event,
                 "eventType": event,
-                "Url": webhook_url,
+                "Url": webhook_url,  # Your webhook URL that GMass will call
                 "dataFormat": "json",
                 "enabled": True
             }
