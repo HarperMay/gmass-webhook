@@ -27,7 +27,11 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
 )
-
+# Ensure log file exists
+if not os.path.exists(LOG_FILE):
+    with open(LOG_FILE, "w") as f:
+        f.write("GMass Webhook Log Started\n")
+        
 # Events to track
 events = ["Opens", "Clicks", "Replies", "Bounces", "Unsubscribes", "Sends", "Blocks"]
 
