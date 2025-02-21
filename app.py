@@ -95,25 +95,39 @@ def get_logs():
 def get_gmass_report(campaign_id, report_type):
     """
     Fetches GMass report for a given campaign ID and report type.
-    Available types: opens, clicks, unsubscribes, bounces, blocks, replies
+    Available types: opens, clicks, unsubscribes, bounces, blocks, replies.
     """
-    api_key = api_keys[0]
-    url = f"https://api.gmass.co/api/reports/{campaign_id}/{report_type}"
 
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json"
-    }
+    # Find an API key that matches the campaign ID
+    api_key = None
+    for key in api_keys:
+        headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
+        check_url = f"https://api.gmass.co/api/campaigns/{campaign_id}"
+
+        response = requests.get(check_url, headers=headers)
+
+        if response.status_code == 200:
+            api_key = key
+            break
+
+    if api_key is None:
+        logging.error(f"❌ No valid API key found for campaign ID {campaign_id}")
+        return jsonify({"error": "No valid API key found for this campaign"}), 403
+
+    # Now, fetch the actual report
+    url = f"https://api.gmass.co/api/reports/{campaign_id}/{report_type}"
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
 
     response = requests.get(url, headers=headers)
-    
+
     if response.status_code == 200:
         data = response.json()
-        logging.info(f"Successfully retrieved {report_type} report for campaign {campaign_id}")
+        logging.info(f"✅ Successfully retrieved {report_type} report for campaign {campaign_id}")
         return jsonify(data), 200
     else:
-        logging.error(f"Failed to retrieve {report_type} report for campaign {campaign_id}: {response.text}")
+        logging.error(f"❌ Failed to retrieve {report_type} report for campaign {campaign_id}: {response.text}")
         return jsonify({"error": "Failed to retrieve report", "status_code": response.status_code}), response.status_code
+
 
 
 @app.route("/reports/<campaign_id>/opens", methods=["GET"])
