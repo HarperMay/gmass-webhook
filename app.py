@@ -1,23 +1,22 @@
+import os
 import requests
 import logging
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
+# Retrieve environment variables
+api_keys = os.getenv("API_KEYS").split(",")  # Convert CSV string to list
+campaign_ids = os.getenv("CAMPAIGN_IDS").split(",")
+webhook_url = os.getenv("WEBHOOK_URL")
 
 # Configure logging
 logging.basicConfig(
-    filename="gmass_webhook.log",  # Log file
+    filename="gmass_webhook.log",  
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
 )
-
-# GMass API details
-api_keys = [
-    '545d9f64-9e1b-47d6-b5c2-2cc232f29534',
-    '2e993e75-6673-4675-944b-afa1cac5127d',
-    '7d587127-14df-44fe-a10f-9e57e6ea447a',
-    '9f566d1d-ee03-47ef-9230-0b4224305789'
-]
-
-campaign_ids = ['41185249', '42024174']
-webhook_url = "https://webhook.site/2dfff1d2-9e46-423a-9801-45f05c21bdad"  # Replace with actual webhook URL
 
 # Events to track
 events = ["Opens", "Clicks", "Replies", "Bounces", "Unsubscribes", "Sends", "Blocks"]
