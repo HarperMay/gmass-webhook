@@ -19,10 +19,11 @@ app = Flask(__name__)
 
 # CSV File Path
 CSV_FILE = "gmass_events.csv"
+LOG_FILE = "gmass_webhook.log"
 
 # Configure logging
 logging.basicConfig(
-    filename="gmass_webhook.log",
+    filename=LOG_FILE,
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
 )
@@ -70,6 +71,17 @@ def receive_gmass_event():
         writer.writerow([timestamp, event, campaign_id, email, extra_data])
 
     return jsonify({"status": "success", "message": "Event received and stored"}), 200
+
+@app.route("/logs", methods=["GET"])
+def get_logs():
+    """
+    Serves the gmass_webhook.log file content
+    """
+    try:
+        with open(LOG_FILE, "r") as f:
+            return f"<pre>{f.read()}</pre>", 200  # Display logs in a readable format
+    except FileNotFoundError:
+        return "Log file not found", 404
 
 def create_webhooks():
     """
